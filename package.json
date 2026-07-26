@@ -1,0 +1,33 @@
+{
+  "name": "wp-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "compile": "tsc",
+    "build": "npm run compile",
+    "typecheck": "tsc --noEmit",
+    "clear:global-commands": "tsx src/bot/deployCommands.ts",
+    "service:install": "npm run build && node scripts/windows-service.mjs install",
+    "service:uninstall": "node scripts/windows-service.mjs uninstall",
+    "service:start": "node scripts/windows-service.mjs start",
+    "service:stop": "node scripts/windows-service.mjs stop"
+  },
+  "dependencies": {
+    "@fastify/cors": "latest",
+    "@fastify/static": "latest",
+    "discord.js": "latest",
+    "dotenv": "latest",
+    "fastify": "latest",
+    "node-windows": "^1.0.0-beta.8",
+    "pino": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

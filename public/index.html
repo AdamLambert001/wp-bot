@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WP Bot Admin</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+        background: #10131a;
+        color: #eef2ff;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px;
+      }
+
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      section {
+        background: #171b26;
+        border: 1px solid #2a3040;
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 18px;
+      }
+
+      label {
+        display: block;
+        margin: 14px 0 6px;
+        color: #b9c2d8;
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        box-sizing: border-box;
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid #3a4358;
+        background: #0f1320;
+        color: #eef2ff;
+        padding: 10px 12px;
+        font: inherit;
+      }
+
+      button {
+        margin-top: 16px;
+        cursor: pointer;
+        background: #5865f2;
+        border-color: #5865f2;
+        font-weight: 700;
+      }
+
+      textarea {
+        min-height: 72px;
+        resize: vertical;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+
+      .muted {
+        color: #91a0bd;
+      }
+
+      .status {
+        min-height: 24px;
+        color: #9fe6b8;
+      }
+
+      pre {
+        white-space: pre-wrap;
+        background: #0c0f17;
+        border-radius: 10px;
+        padding: 12px;
+        overflow: auto;
+      }
+
+      .combo-results,
+      .role-list,
+      .channel-list {
+        margin-top: 8px;
+        border: 1px solid #2a3040;
+        border-radius: 10px;
+        background: #0c0f17;
+        max-height: 240px;
+        overflow: auto;
+      }
+
+      .combo-option,
+      .role-option,
+      .channel-option {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid #202638;
+      }
+
+      .combo-option:last-child,
+      .role-option:last-child,
+      .channel-option:last-child {
+        border-bottom: 0;
+      }
+
+      .combo-option {
+        cursor: pointer;
+      }
+
+      .combo-option:hover {
+        background: #1d2435;
+      }
+
+      .role-option input,
+      .channel-option input {
+        width: auto;
+      }
+
+      .summary {
+        margin: 10px 0 0;
+        color: #cdd6ef;
+        font-weight: 700;
+      }
+
+      .config-row {
+        display: grid;
+        grid-template-columns: 1fr 2fr 2fr 120px 90px;
+        gap: 10px;
+        align-items: end;
+        border-bottom: 1px solid #2a3040;
+        padding: 12px 0;
+      }
+
+      .check-row {
+        display: grid;
+        grid-template-columns: 1fr 2fr 120px 90px;
+        gap: 10px;
+        align-items: end;
+        border-bottom: 1px solid #2a3040;
+        padding: 12px 0;
+      }
+
+      .window-row {
+        display: grid;
+        gap: 10px;
+        border-bottom: 1px solid #2a3040;
+        padding: 12px 0;
+      }
+
+      .window-row-top {
+        display: grid;
+        grid-template-columns: 1fr 1fr 120px 90px;
+        gap: 10px;
+        align-items: end;
+      }
+
+      .day-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .day-option {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        margin: 0;
+        color: #cdd6ef;
+      }
+
+      .day-option input {
+        width: auto;
+      }
+
+      .danger {
+        background: #7f1d1d;
+        border-color: #991b1b;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>WP Bot Admin</h1>
+      <p class="muted">Configure PBO uploads, logging, roles, and mission locations for servers the bot is in.</p>
+
+      <section>
+        <h2>Connection</h2>
+        <label for="secret">Admin Secret</label>
+        <input id="secret" type="password" placeholder="WEB_SESSION_SECRET" />
+        <button id="loadGuilds">Load Guilds</button>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section>
+        <h2>Server Config</h2>
+        <label for="guild">Guild</label>
+        <select id="guild"></select>
+
+        <div class="grid">
+          <div>
+            <label for="logChannelSearch">Logging Channel</label>
+            <input id="logChannelSearch" placeholder="Search channels..." autocomplete="off" />
+            <input id="logChannelId" type="hidden" />
+            <div id="channelResults" class="combo-results"></div>
+          </div>
+          <div>
+            <label for="roleSearch">Allowed Upload Roles</label>
+            <input id="roleSearch" placeholder="Search roles..." autocomplete="off" />
+            <p id="roleSummary" class="summary">0 active roles can upload</p>
+            <div id="roleList" class="role-list"></div>
+          </div>
+          <div>
+            <label for="uploadChannelSearch">Allowed Upload Channels</label>
+            <input id="uploadChannelSearch" placeholder="Search text/forum channels..." autocomplete="off" />
+            <p id="uploadChannelSummary" class="summary">No channels can upload</p>
+            <div id="uploadChannelList" class="channel-list"></div>
+          </div>
+        </div>
+
+        <label for="missionUploadPath">Mission Upload Folder</label>
+        <input id="missionUploadPath" placeholder="D:\ArmaServer\mpmissions" />
+
+        <div class="grid">
+          <div>
+            <label for="maxUploadMb">Max Upload Size MB</label>
+            <input id="maxUploadMb" type="number" min="1" max="500" value="100" />
+          </div>
+          <div>
+            <label for="overwriteExisting">Overwrite Existing</label>
+            <select id="overwriteExisting">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div>
+            <label for="backupBeforeOverwrite">Backup Before Overwrite</label>
+            <select id="backupBeforeOverwrite">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="saveConfig">Save Config</button>
+      </section>
+
+      <section>
+        <h2>Server Commands</h2>
+        <p class="muted">Commands are executed on this machine via <code>cmd.exe /c</code>. Only configured rows can be run from Discord.</p>
+
+        <div class="grid">
+          <div>
+            <label for="serverCommandRoleSearch">Allowed Start/Stop/Lock Roles</label>
+            <input id="serverCommandRoleSearch" placeholder="Search roles..." autocomplete="off" />
+            <p id="serverCommandRoleSummary" class="summary">0 roles can use start/stop/lock</p>
+            <div id="serverCommandRoleList" class="role-list"></div>
+          </div>
+          <div>
+            <label for="serverCommandChannelSearch">Allowed Start/Stop/Lock Channels</label>
+            <input id="serverCommandChannelSearch" placeholder="Search text/forum channels..." autocomplete="off" />
+            <p id="serverCommandChannelSummary" class="summary">No channels can use start/stop/lock</p>
+            <div id="serverCommandChannelList" class="channel-list"></div>
+          </div>
+        </div>
+
+        <div id="serverCommandRows"></div>
+        <button id="addServerCommand" type="button">Add Server Command</button>
+
+        <h3>Stop Lock Windows</h3>
+        <p class="muted">During these local-time windows on selected weekdays, <code>/stop</code> is blocked for all configured server commands.</p>
+        <div id="stopLockWindowRows"></div>
+        <button id="addStopLockWindow" type="button">Add Stop Lock Window</button>
+        <button id="saveServerConfig" type="button">Save Server Commands &amp; Locks</button>
+      </section>
+
+      <section>
+        <h2>Server Checks</h2>
+        <p class="muted">
+          Configure named port checks for <code>/servercheck</code>. A server is
+          <strong>Online</strong> if any listed port has a process using it (TCP or UDP).
+        </p>
+        <div id="serverCheckRows"></div>
+        <button id="addServerCheck" type="button">Add Server Check</button>
+        <button id="saveServerChecks" type="button">Save Server Checks</button>
+      </section>
+
+      <section>
+        <h2>Recent Audit Logs</h2>
+        <button id="loadLogs">Refresh Logs</button>
+        <pre id="logs">No logs loaded.</pre>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        secret: "",
+        guildId: "",
+        channels: [],
+        roles: [],
+        selectedRoleIds: new Set(),
+        selectedUploadChannelIds: new Set(),
+        selectedServerCommandRoleIds: new Set(),
+        selectedServerCommandChannelIds: new Set(),
+        selectedChannelId: "",
+        serverCommands: [],
+        serverChecks: [],
+        globalStopLockWindows: [],
+        commandLocks: {}
+      };
+
+      const byId = (id) => document.getElementById(id);
+      const status = (message, isError = false) => {
+        byId("status").textContent = message;
+        byId("status").style.color = isError ? "#ff9f9f" : "#9fe6b8";
+      };
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          headers: {
+            "content-type": "application/json",
+            "x-admin-secret": state.secret,
+            ...(options.headers || {})
+          }
+        });
+
+        if (!response.ok) {
+          let details = `${response.status} ${response.statusText}`;
+          try {
+            const payload = await response.json();
+            if (Array.isArray(payload.details) && payload.details.length > 0) {
+              details = payload.details.join("; ");
+            } else if (payload.error) {
+              details = payload.error;
+            }
+          } catch {
+            // Keep the HTTP status text when the body is not JSON.
+          }
+
+          throw new Error(details);
+        }
+
+        return response.json();
+      }
+
+      function normalizeTimeValue(value) {
+        if (!value) return "";
+        return String(value).trim().slice(0, 5);
+      }
+
+      function collectServerCommandsFromDom() {
+        const rows = Array.from(byId("serverCommandRows").querySelectorAll("[data-server-command-row]"));
+
+        return rows.map((row) => {
+          const id = row.getAttribute("data-id") || createId("command");
+          const name = (row.querySelector("[data-field='name']")?.value || "").trim();
+          const startCommand = (row.querySelector("[data-field='startCommand']")?.value || "").trim();
+          const stopCommand = (row.querySelector("[data-field='stopCommand']")?.value || "").trim();
+          const enabled = (row.querySelector("[data-field='enabled']")?.value || "true") === "true";
+
+          return { id, name, startCommand, stopCommand, enabled };
+        });
+      }
+
+      function collectStopLockWindowsFromDom() {
+        const rows = Array.from(byId("stopLockWindowRows").querySelectorAll("[data-stop-lock-row]"));
+
+        return rows.map((row) => {
+          const id = row.getAttribute("data-id") || createId("window");
+          const start = normalizeTimeValue(row.querySelector("[data-field='start']")?.value || "");
+          const end = normalizeTimeValue(row.querySelector("[data-field='end']")?.value || "");
+          const enabled = (row.querySelector("[data-field='enabled']")?.value || "true") === "true";
+          const daysOfWeek = Array.from(row.querySelectorAll("[data-field='day']:checked")).map((input) =>
+            Number(input.value)
+          );
+
+          return {
+            id,
+            start,
+            end,
+            daysOfWeek: normalizeDaysOfWeek(daysOfWeek),
+            enabled
+          };
+        });
+      }
+
+      function parsePortsInput(value) {
+        return [
+          ...new Set(
+            String(value || "")
+              .split(/[,\s]+/)
+              .map((part) => part.trim())
+              .filter(Boolean)
+              .map((part) => Number(part))
+              .filter((port) => Number.isInteger(port) && port >= 1 && port <= 65535)
+          )
+        ];
+      }
+
+      function collectServerChecksFromDom() {
+        const rows = Array.from(byId("serverCheckRows").querySelectorAll("[data-server-check-row]"));
+
+        return rows.map((row) => {
+          const id = row.getAttribute("data-id") || createId("check");
+          const name = (row.querySelector("[data-field='name']")?.value || "").trim();
+          const ports = parsePortsInput(row.querySelector("[data-field='ports']")?.value || "");
+          const enabled = (row.querySelector("[data-field='enabled']")?.value || "true") === "true";
+
+          return { id, name, ports, enabled };
+        });
+      }
+
+      function syncEditableConfigFromDom() {
+        state.serverCommands = collectServerCommandsFromDom();
+        state.serverChecks = collectServerChecksFromDom();
+        state.globalStopLockWindows = collectStopLockWindowsFromDom();
+      }
+
+      function buildConfigPayload() {
+        syncEditableConfigFromDom();
+
+        const incompleteCommands = state.serverCommands.filter((command) => {
+          const filledCount = [command.name, command.startCommand, command.stopCommand].filter(Boolean).length;
+          return filledCount > 0 && filledCount < 3;
+        });
+        const incompleteChecks = state.serverChecks.filter((check) => {
+          const hasName = Boolean(check.name);
+          const hasPorts = check.ports.length > 0;
+          return (hasName || hasPorts) && !(hasName && hasPorts);
+        });
+        const serverCommands = state.serverCommands.filter(
+          (command) => command.name && command.startCommand && command.stopCommand
+        );
+        const serverChecks = state.serverChecks.filter((check) => check.name && check.ports.length > 0);
+        const globalStopLockWindows = state.globalStopLockWindows.filter(
+          (windowConfig) => windowConfig.start && windowConfig.end
+        );
+
+        return {
+          incompleteCommands,
+          incompleteChecks,
+          payload: {
+            logChannelId: byId("logChannelId").value || null,
+            missionUploadPath: byId("missionUploadPath").value || null,
+            allowedRoleIds: selectedRoles(),
+            allowedUploadChannelIds: selectedUploadChannels(),
+            allowedServerCommandRoleIds: selectedServerCommandRoles(),
+            allowedServerCommandChannelIds: selectedServerCommandChannels(),
+            allowedUserIds: [],
+            maxUploadMb: Number(byId("maxUploadMb").value),
+            overwriteExisting: byId("overwriteExisting").value === "true",
+            backupBeforeOverwrite: byId("backupBeforeOverwrite").value === "true",
+            serverCommands,
+            serverChecks,
+            globalStopLockWindows,
+            commandLocks: state.commandLocks
+          }
+        };
+      }
+
+      async function saveConfig() {
+        if (!state.guildId) {
+          status("Load a guild before saving config.", true);
+          return;
+        }
+
+        const { incompleteCommands, incompleteChecks, payload } = buildConfigPayload();
+
+        if (incompleteCommands.length > 0) {
+          status(
+            `Some server command rows are only partly filled. Complete or remove them, then save again.`,
+            true
+          );
+          return;
+        }
+
+        if (incompleteChecks.length > 0) {
+          status(
+            `Some server check rows are only partly filled. Add a name and at least one port, then save again.`,
+            true
+          );
+          return;
+        }
+
+        const result = await api(`/api/guilds/${state.guildId}/config`, {
+          method: "PUT",
+          body: JSON.stringify(payload)
+        });
+
+        state.serverCommands = result.config.serverCommands || payload.serverCommands;
+        state.serverChecks = result.config.serverChecks || payload.serverChecks;
+        state.globalStopLockWindows = result.config.globalStopLockWindows || payload.globalStopLockWindows;
+        state.commandLocks = result.config.commandLocks || payload.commandLocks;
+        renderServerCommands();
+        renderServerChecks();
+        renderStopLockWindows();
+        status(
+          `Config saved. ${state.serverCommands.length} server command(s), ${state.serverChecks.length} server check(s), ${state.globalStopLockWindows.length} stop lock window(s).`
+        );
+      }
+
+      function selectedValues(select) {
+        return Array.from(select.selectedOptions).map((option) => option.value);
+      }
+
+      function selectedRoles() {
+        return Array.from(state.selectedRoleIds);
+      }
+
+      function selectedUploadChannels() {
+        return Array.from(state.selectedUploadChannelIds);
+      }
+
+      function selectedServerCommandRoles() {
+        return Array.from(state.selectedServerCommandRoleIds);
+      }
+
+      function selectedServerCommandChannels() {
+        return Array.from(state.selectedServerCommandChannelIds);
+      }
+
+      function createId(prefix) {
+        return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      }
+
+      function filteredItems(items, query, labelKey = "name") {
+        const normalizedQuery = query.trim().toLowerCase();
+        if (!normalizedQuery) return items;
+        return items.filter((item) => item[labelKey].toLowerCase().includes(normalizedQuery));
+      }
+
+      function renderChannels() {
+        const channelResults = byId("channelResults");
+        const query = byId("logChannelSearch").value;
+        const channels = filteredItems(
+          state.channels.filter((channel) => channel.canUseForLogs),
+          query
+        );
+        channelResults.innerHTML = "";
+
+        const noneOption = document.createElement("div");
+        noneOption.className = "combo-option";
+        noneOption.textContent = "No logging channel";
+        noneOption.addEventListener("click", () => {
+          state.selectedChannelId = "";
+          byId("logChannelId").value = "";
+          byId("logChannelSearch").value = "";
+          renderChannels();
+        });
+        channelResults.appendChild(noneOption);
+
+        for (const channel of channels) {
+          const option = document.createElement("div");
+          option.className = "combo-option";
+          option.textContent = `#${channel.name}`;
+          option.addEventListener("click", () => {
+            state.selectedChannelId = channel.id;
+            byId("logChannelId").value = channel.id;
+            byId("logChannelSearch").value = `#${channel.name}`;
+            renderChannels();
+          });
+          channelResults.appendChild(option);
+        }
+      }
+
+      function renderRoles() {
+        const roleList = byId("roleList");
+        const query = byId("roleSearch").value;
+        const roles = filteredItems(state.roles, query);
+        roleList.innerHTML = "";
+
+        for (const role of roles) {
+          const label = document.createElement("label");
+          label.className = "role-option";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = state.selectedRoleIds.has(role.id);
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+              state.selectedRoleIds.add(role.id);
+            } else {
+              state.selectedRoleIds.delete(role.id);
+            }
+            updateRoleSummary();
+          });
+
+          const text = document.createElement("span");
+          text.textContent = role.name;
+          label.append(checkbox, text);
+          roleList.appendChild(label);
+        }
+
+        updateRoleSummary();
+      }
+
+      function channelLabel(channel) {
+        return `${channel.type === 15 ? "Forum" : "Text"}: #${channel.name}`;
+      }
+
+      function renderUploadChannels() {
+        const channelList = byId("uploadChannelList");
+        const query = byId("uploadChannelSearch").value;
+        const channels = filteredItems(
+          state.channels.filter((channel) => channel.canUseForUploads),
+          query
+        );
+        channelList.innerHTML = "";
+
+        for (const channel of channels) {
+          const label = document.createElement("label");
+          label.className = "channel-option";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = state.selectedUploadChannelIds.has(channel.id);
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+              state.selectedUploadChannelIds.add(channel.id);
+            } else {
+              state.selectedUploadChannelIds.delete(channel.id);
+            }
+            updateUploadChannelSummary();
+          });
+
+          const text = document.createElement("span");
+          text.textContent = channelLabel(channel);
+          label.append(checkbox, text);
+          channelList.appendChild(label);
+        }
+
+        updateUploadChannelSummary();
+      }
+
+      function updateRoleSummary() {
+        const count = state.selectedRoleIds.size;
+        const roleNames = state.roles
+          .filter((role) => state.selectedRoleIds.has(role.id))
+          .map((role) => role.name);
+
+        byId("roleSummary").textContent =
+          count === 0
+            ? "0 active roles can upload"
+            : `${count} active role${count === 1 ? "" : "s"} can upload: ${roleNames.join(", ")}`;
+      }
+
+      function updateUploadChannelSummary() {
+        const count = state.selectedUploadChannelIds.size;
+        const channelNames = state.channels
+          .filter((channel) => state.selectedUploadChannelIds.has(channel.id))
+          .map(channelLabel);
+
+        byId("uploadChannelSummary").textContent =
+          count === 0
+            ? "No channels can upload"
+            : `${count} allowed upload channel${count === 1 ? "" : "s"}: ${channelNames.join(", ")}`;
+      }
+
+      function updateServerCommandRoleSummary() {
+        const count = state.selectedServerCommandRoleIds.size;
+        const roleNames = state.roles
+          .filter((role) => state.selectedServerCommandRoleIds.has(role.id))
+          .map((role) => role.name);
+
+        byId("serverCommandRoleSummary").textContent =
+          count === 0
+            ? "0 roles can use start/stop/lock"
+            : `${count} role${count === 1 ? "" : "s"} can use start/stop/lock: ${roleNames.join(", ")}`;
+      }
+
+      function updateServerCommandChannelSummary() {
+        const count = state.selectedServerCommandChannelIds.size;
+        const channelNames = state.channels
+          .filter((channel) => state.selectedServerCommandChannelIds.has(channel.id))
+          .map(channelLabel);
+
+        byId("serverCommandChannelSummary").textContent =
+          count === 0
+            ? "No channels can use start/stop/lock"
+            : `${count} allowed start/stop/lock channel${count === 1 ? "" : "s"}: ${channelNames.join(", ")}`;
+      }
+
+      function renderServerCommandRoles() {
+        const roleList = byId("serverCommandRoleList");
+        const query = byId("serverCommandRoleSearch").value;
+        const roles = filteredItems(state.roles, query);
+        roleList.innerHTML = "";
+
+        for (const role of roles) {
+          const label = document.createElement("label");
+          label.className = "role-option";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = state.selectedServerCommandRoleIds.has(role.id);
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+              state.selectedServerCommandRoleIds.add(role.id);
+            } else {
+              state.selectedServerCommandRoleIds.delete(role.id);
+            }
+            updateServerCommandRoleSummary();
+          });
+
+          const text = document.createElement("span");
+          text.textContent = role.name;
+          label.append(checkbox, text);
+          roleList.appendChild(label);
+        }
+
+        updateServerCommandRoleSummary();
+      }
+
+      function renderServerCommandChannels() {
+        const channelList = byId("serverCommandChannelList");
+        const query = byId("serverCommandChannelSearch").value;
+        const channels = filteredItems(
+          state.channels.filter((channel) => channel.canUseForUploads),
+          query
+        );
+        channelList.innerHTML = "";
+
+        for (const channel of channels) {
+          const label = document.createElement("label");
+          label.className = "channel-option";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = state.selectedServerCommandChannelIds.has(channel.id);
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+              state.selectedServerCommandChannelIds.add(channel.id);
+            } else {
+              state.selectedServerCommandChannelIds.delete(channel.id);
+            }
+            updateServerCommandChannelSummary();
+          });
+
+          const text = document.createElement("span");
+          text.textContent = channelLabel(channel);
+          label.append(checkbox, text);
+          channelList.appendChild(label);
+        }
+
+        updateServerCommandChannelSummary();
+      }
+
+      function renderServerChecks() {
+        const container = byId("serverCheckRows");
+        container.innerHTML = "";
+
+        for (const check of state.serverChecks) {
+          const row = document.createElement("div");
+          row.className = "check-row";
+          row.setAttribute("data-server-check-row", "true");
+          row.setAttribute("data-id", check.id);
+
+          const name = document.createElement("input");
+          name.placeholder = "main";
+          name.value = check.name || "";
+          name.setAttribute("data-field", "name");
+
+          const ports = document.createElement("input");
+          ports.placeholder = "2302, 2303";
+          ports.value = Array.isArray(check.ports) ? check.ports.join(", ") : "";
+          ports.setAttribute("data-field", "ports");
+
+          const enabled = document.createElement("select");
+          enabled.setAttribute("data-field", "enabled");
+          enabled.add(new Option("Enabled", "true"));
+          enabled.add(new Option("Disabled", "false"));
+          enabled.value = String(check.enabled !== false);
+
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "danger";
+          remove.textContent = "Remove";
+          remove.addEventListener("click", () => {
+            syncEditableConfigFromDom();
+            state.serverChecks = state.serverChecks.filter((item) => item.id !== check.id);
+            renderServerChecks();
+          });
+
+          row.append(name, ports, enabled, remove);
+          container.appendChild(row);
+        }
+      }
+
+      function renderServerCommands() {
+        const container = byId("serverCommandRows");
+        container.innerHTML = "";
+
+        for (const command of state.serverCommands) {
+          const row = document.createElement("div");
+          row.className = "config-row";
+          row.setAttribute("data-server-command-row", "true");
+          row.setAttribute("data-id", command.id);
+
+          const name = document.createElement("input");
+          name.placeholder = "main";
+          name.value = command.name || "";
+          name.setAttribute("data-field", "name");
+
+          const startCommand = document.createElement("textarea");
+          startCommand.placeholder = "D:\\servers\\main\\start.bat";
+          startCommand.value = command.startCommand || "";
+          startCommand.setAttribute("data-field", "startCommand");
+
+          const stopCommand = document.createElement("textarea");
+          stopCommand.placeholder = "D:\\servers\\main\\stop.bat";
+          stopCommand.value = command.stopCommand || "";
+          stopCommand.setAttribute("data-field", "stopCommand");
+
+          const enabled = document.createElement("select");
+          enabled.setAttribute("data-field", "enabled");
+          enabled.add(new Option("Enabled", "true"));
+          enabled.add(new Option("Disabled", "false"));
+          enabled.value = String(command.enabled !== false);
+
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "danger";
+          remove.textContent = "Remove";
+          remove.addEventListener("click", () => {
+            syncEditableConfigFromDom();
+            state.serverCommands = state.serverCommands.filter((item) => item.id !== command.id);
+            delete state.commandLocks[command.id];
+            renderServerCommands();
+          });
+
+          row.append(name, startCommand, stopCommand, enabled, remove);
+          container.appendChild(row);
+        }
+      }
+
+      const weekdayOptions = [
+        { value: 0, label: "Sun" },
+        { value: 1, label: "Mon" },
+        { value: 2, label: "Tue" },
+        { value: 3, label: "Wed" },
+        { value: 4, label: "Thu" },
+        { value: 5, label: "Fri" },
+        { value: 6, label: "Sat" }
+      ];
+
+      function normalizeDaysOfWeek(days) {
+        if (!Array.isArray(days) || days.length === 0) {
+          return [0, 1, 2, 3, 4, 5, 6];
+        }
+
+        return days.map(Number).filter((day) => day >= 0 && day <= 6);
+      }
+
+      function renderStopLockWindows() {
+        const container = byId("stopLockWindowRows");
+        container.innerHTML = "";
+
+        for (const windowConfig of state.globalStopLockWindows) {
+          windowConfig.daysOfWeek = normalizeDaysOfWeek(windowConfig.daysOfWeek);
+
+          const row = document.createElement("div");
+          row.className = "window-row";
+          row.setAttribute("data-stop-lock-row", "true");
+          row.setAttribute("data-id", windowConfig.id);
+
+          const top = document.createElement("div");
+          top.className = "window-row-top";
+
+          const start = document.createElement("input");
+          start.type = "time";
+          start.value = normalizeTimeValue(windowConfig.start || "18:00");
+          start.setAttribute("data-field", "start");
+
+          const end = document.createElement("input");
+          end.type = "time";
+          end.value = normalizeTimeValue(windowConfig.end || "23:00");
+          end.setAttribute("data-field", "end");
+
+          const enabled = document.createElement("select");
+          enabled.setAttribute("data-field", "enabled");
+          enabled.add(new Option("Enabled", "true"));
+          enabled.add(new Option("Disabled", "false"));
+          enabled.value = String(windowConfig.enabled !== false);
+
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "danger";
+          remove.textContent = "Remove";
+          remove.addEventListener("click", () => {
+            syncEditableConfigFromDom();
+            state.globalStopLockWindows = state.globalStopLockWindows.filter(
+              (item) => item.id !== windowConfig.id
+            );
+            renderStopLockWindows();
+          });
+
+          top.append(start, end, enabled, remove);
+
+          const daysLabel = document.createElement("label");
+          daysLabel.textContent = "Days of week";
+
+          const dayList = document.createElement("div");
+          dayList.className = "day-list";
+
+          for (const day of weekdayOptions) {
+            const label = document.createElement("label");
+            label.className = "day-option";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = String(day.value);
+            checkbox.checked = windowConfig.daysOfWeek.includes(day.value);
+            checkbox.setAttribute("data-field", "day");
+
+            const text = document.createElement("span");
+            text.textContent = day.label;
+            label.append(checkbox, text);
+            dayList.appendChild(label);
+          }
+
+          row.append(top, daysLabel, dayList);
+          container.appendChild(row);
+        }
+      }
+
+      async function loadGuildDetails() {
+        state.guildId = byId("guild").value;
+        if (!state.guildId) return;
+
+        const [configResult, channelResult, roleResult] = await Promise.all([
+          api(`/api/guilds/${state.guildId}/config`),
+          api(`/api/guilds/${state.guildId}/channels`),
+          api(`/api/guilds/${state.guildId}/roles`)
+        ]);
+
+        state.channels = channelResult.channels;
+        state.roles = roleResult.roles;
+        const { config } = configResult;
+        const selectedChannel = state.channels.find((channel) => channel.id === config.logChannelId);
+        state.selectedChannelId = config.logChannelId || "";
+        state.selectedRoleIds = new Set(config.allowedRoleIds);
+        state.selectedUploadChannelIds = new Set(config.allowedUploadChannelIds || []);
+        state.selectedServerCommandRoleIds = new Set(config.allowedServerCommandRoleIds || []);
+        state.selectedServerCommandChannelIds = new Set(config.allowedServerCommandChannelIds || []);
+        state.serverCommands = config.serverCommands || [];
+        state.serverChecks = config.serverChecks || [];
+        state.globalStopLockWindows = (config.globalStopLockWindows || []).map((windowConfig) => ({
+          ...windowConfig,
+          daysOfWeek: normalizeDaysOfWeek(windowConfig.daysOfWeek)
+        }));
+        state.commandLocks = config.commandLocks || {};
+
+        byId("logChannelId").value = config.logChannelId || "";
+        byId("logChannelSearch").value = selectedChannel ? `#${selectedChannel.name}` : "";
+        byId("missionUploadPath").value = config.missionUploadPath || "";
+        byId("maxUploadMb").value = config.maxUploadMb;
+        byId("overwriteExisting").value = String(config.overwriteExisting);
+        byId("backupBeforeOverwrite").value = String(config.backupBeforeOverwrite);
+        byId("roleSearch").value = "";
+        byId("uploadChannelSearch").value = "";
+        byId("serverCommandRoleSearch").value = "";
+        byId("serverCommandChannelSearch").value = "";
+        renderChannels();
+        renderRoles();
+        renderUploadChannels();
+        renderServerCommandRoles();
+        renderServerCommandChannels();
+        renderServerCommands();
+        renderServerChecks();
+        renderStopLockWindows();
+
+        status("Loaded guild config.");
+      }
+
+      byId("loadGuilds").addEventListener("click", async () => {
+        try {
+          state.secret = byId("secret").value;
+          const result = await api("/api/guilds");
+          const guildSelect = byId("guild");
+          guildSelect.innerHTML = "";
+
+          for (const guild of result.guilds) {
+            guildSelect.add(new Option(guild.name, guild.id));
+          }
+
+          await loadGuildDetails();
+          status(`Loaded ${result.guilds.length} guild(s).`);
+        } catch (error) {
+          status(`Failed to load guilds: ${error.message}`, true);
+        }
+      });
+
+      byId("guild").addEventListener("change", () => {
+        loadGuildDetails().catch((error) => status(`Failed to load guild: ${error.message}`, true));
+      });
+
+      byId("saveConfig").addEventListener("click", () => {
+        saveConfig().catch((error) => status(`Failed to save config: ${error.message}`, true));
+      });
+
+      byId("saveServerConfig").addEventListener("click", () => {
+        saveConfig().catch((error) => status(`Failed to save config: ${error.message}`, true));
+      });
+
+      byId("saveServerChecks").addEventListener("click", () => {
+        saveConfig().catch((error) => status(`Failed to save config: ${error.message}`, true));
+      });
+
+      byId("loadLogs").addEventListener("click", async () => {
+        try {
+          const result = await api(`/api/guilds/${state.guildId}/audit-logs`);
+          byId("logs").textContent = JSON.stringify(result.logs, null, 2);
+          status("Logs loaded.");
+        } catch (error) {
+          status(`Failed to load logs: ${error.message}`, true);
+        }
+      });
+
+      byId("logChannelSearch").addEventListener("input", () => {
+        state.selectedChannelId = "";
+        byId("logChannelId").value = "";
+        renderChannels();
+      });
+
+      byId("roleSearch").addEventListener("input", renderRoles);
+      byId("uploadChannelSearch").addEventListener("input", renderUploadChannels);
+      byId("serverCommandRoleSearch").addEventListener("input", renderServerCommandRoles);
+      byId("serverCommandChannelSearch").addEventListener("input", renderServerCommandChannels);
+
+      byId("addServerCommand").addEventListener("click", () => {
+        syncEditableConfigFromDom();
+        state.serverCommands.push({
+          id: createId("command"),
+          name: "",
+          startCommand: "",
+          stopCommand: "",
+          enabled: true
+        });
+        renderServerCommands();
+      });
+
+      byId("addServerCheck").addEventListener("click", () => {
+        syncEditableConfigFromDom();
+        state.serverChecks.push({
+          id: createId("check"),
+          name: "",
+          ports: [],
+          enabled: true
+        });
+        renderServerChecks();
+      });
+
+      byId("addStopLockWindow").addEventListener("click", () => {
+        syncEditableConfigFromDom();
+        state.globalStopLockWindows.push({
+          id: createId("window"),
+          start: "18:00",
+          end: "23:00",
+          daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+          enabled: true
+        });
+        renderStopLockWindows();
+      });
+    </script>
+  </body>
+</html>
