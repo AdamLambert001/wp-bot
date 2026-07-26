@@ -44,7 +44,18 @@ function loadStore(): StoreData {
 let data = loadStore();
 
 function persist() {
-  writeFileSync(databasePath, JSON.stringify(data, null, 2));
+  try {
+    writeFileSync(databasePath, JSON.stringify(data, null, 2));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EPERM" || code === "EACCES") {
+      throw new Error(
+        `Cannot write ${databasePath} (${code}). Stop the WPBot Windows service if it is running, and make sure only one bot instance is using this folder. Also check that your user account can modify the data folder.`
+      );
+    }
+
+    throw error;
+  }
 }
 
 export const store = {

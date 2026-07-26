@@ -3,12 +3,14 @@ import {
   ChatInputCommandInteraction,
   Client,
   Collection,
+  Events,
   GatewayIntentBits,
   AutocompleteInteraction
 } from "discord.js";
 import { env } from "../config/env.js";
 import { commands } from "./commands/index.js";
 import { clearGlobalCommands, registerGuildCommands } from "./commandRegistration.js";
+import { isUnknownInteractionError, safeReply } from "./interactionErrors.js";
 import { logger } from "../services/logger.js";
 
 export type BotCommand = {
@@ -32,7 +34,7 @@ export function createBotClient(): AppClient {
 
   client.commands = new Collection(commands.map((command) => [command.data.name, command]));
 
-  client.once("ready", async (readyClient) => {
+  client.once(Events.ClientReady, async (readyClient) => {
     logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
 
     await clearGlobalCommands().catch((error) => {
@@ -72,6 +74,11 @@ export function createBotClient(): AppClient {
       try {
         await command.handleButton(interaction, parts);
       } catch (error) {
+        if (isUnknownInteractionError(error)) {
+          logger.warn({ customId: interaction.customId }, "Ignored expired button interaction");
+          return;
+        }
+
         logger.error({ error, customId: interaction.customId }, "Unhandled button error");
       }
 
@@ -90,18 +97,23 @@ export function createBotClient(): AppClient {
     try {
       await command.execute(interaction);
     } catch (error) {
+      if (isUnknownInteractionError(error)) {
+        logger.warn(
+          { command: interaction.commandName },
+          "Ignored unknown interaction (usually a second bot instance, or Discord timed out after 3s)"
+        );
+        return;
+      }
+
       logger.error({ error, command: interaction.commandName }, "Unhandled command error");
 
-      const response = {
-        content: "Something went wrong while running that command.",
-        ephemeral: true
-      };
-
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply(response);
-      } else {
-        await interaction.reply(response);
-      }
+      await safeReply(interaction, "Something went wrong while running that command.").catch(
+        (replyError) => {
+          if (!isUnknownInteractionError(replyError)) {
+            logger.warn({ error: replyError, command: interaction.commandName }, "Failed to send error reply");
+          }
+        }
+      );
     }
   });
 

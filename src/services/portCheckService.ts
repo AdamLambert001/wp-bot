@@ -30,14 +30,23 @@ export function parseServerCheckPortsInput(value: string): number[] {
   return [...new Set(parsePortsCsv(value))];
 }
 
+/**
+ * Resolve PIDs via netstat — works without Administrator for local listeners.
+ * (Get-NetUDPEndpoint / Get-NetTCPConnection often require elevation.)
+ */
 async function getListeningPidsForPort(port: number): Promise<number[]> {
   const script = `
 $ErrorActionPreference = 'SilentlyContinue'
 $port = ${port}
 $pids = @()
-$pids += @(Get-NetUDPEndpoint -LocalPort $port | Select-Object -ExpandProperty OwningProcess)
-$pids += @(Get-NetTCPConnection -LocalPort $port | Select-Object -ExpandProperty OwningProcess)
-$pids = $pids | Where-Object { $_ -and $_ -ne 0 } | Select-Object -Unique
+function Add-NetstatPids([string]$Protocol, [string]$Pattern) {
+  netstat -ano -p $Protocol | ForEach-Object {
+    if ($_ -match $Pattern) { [int]$Matches[1] }
+  }
+}
+$pids += @(Add-NetstatPids 'UDP' ("^\\s*UDP\\s+\\S+:{0}\\s+\\S+\\s+(\\d+)\\s*$" -f $port))
+$pids += @(Add-NetstatPids 'TCP' ("^\\s*TCP\\s+\\S+:{0}\\s+\\S+\\s+\\S+\\s+(\\d+)\\s*$" -f $port))
+$pids = $pids | Where-Object { $_ -gt 0 } | Select-Object -Unique
 if ($pids) { $pids -join ',' } else { '' }
 `.trim();
 

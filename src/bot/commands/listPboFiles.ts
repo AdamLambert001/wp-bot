@@ -14,6 +14,7 @@ import {
   getUploadPermissionContext,
   getUploadPermissionDiagnostics
 } from "../../services/permissionService.js";
+import { ephemeralFlag } from "../interactionErrors.js";
 
 const pageSize = 10;
 
@@ -71,8 +72,7 @@ async function buildFileListResponse(guildId: string, userId: string, page: numb
 
   return {
     embeds: [embed],
-    components: [row],
-    ephemeral: true
+    components: [row]
   };
 }
 
@@ -106,7 +106,7 @@ export const listPboFilesCommand = {
     .setDescription("List .pbo files in the configured mission upload folder."),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: ephemeralFlag });
 
     try {
       await assertCanListFiles(interaction);
@@ -124,7 +124,7 @@ export const listPboFilesCommand = {
     if (!guildId || !userId || !pageValue) {
       await interaction.reply({
         content: "This file list button is no longer valid.",
-        ephemeral: true
+        flags: ephemeralFlag
       });
       return;
     }
@@ -132,7 +132,7 @@ export const listPboFilesCommand = {
     if (interaction.user.id !== userId) {
       await interaction.reply({
         content: "Only the user who opened this file list can use these buttons.",
-        ephemeral: true
+        flags: ephemeralFlag
       });
       return;
     }

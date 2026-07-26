@@ -817,7 +817,8 @@
           startCommand.setAttribute("data-field", "startCommand");
 
           const stopCommand = document.createElement("textarea");
-          stopCommand.placeholder = "D:\\servers\\main\\stop.bat";
+          stopCommand.placeholder =
+            'powershell -NoProfile -File ".\\scripts\\stop-by-port.ps1" -Port 2302';
           stopCommand.value = command.stopCommand || "";
           stopCommand.setAttribute("data-field", "stopCommand");
 

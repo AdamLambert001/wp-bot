@@ -13,6 +13,7 @@ import {
   getServerControlAccess,
   launchFields
 } from "./serverCommandUtils.js";
+import { ephemeralFlag } from "../interactionErrors.js";
 
 export const startServerCommand = {
   data: new SlashCommandBuilder()
@@ -37,18 +38,21 @@ export const startServerCommand = {
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guildId) {
-      await interaction.reply({ content: "This command can only be used inside a server.", ephemeral: true });
+      await interaction.reply({ content: "This command can only be used inside a server.", flags: ephemeralFlag });
       return;
     }
 
-    let config = removeExpiredCommandLocks(getGuildConfig(interaction.guildId));
-    upsertGuildConfig(config);
+    const existingConfig = getGuildConfig(interaction.guildId);
+    const config = removeExpiredCommandLocks(existingConfig);
+    if (JSON.stringify(existingConfig.commandLocks) !== JSON.stringify(config.commandLocks)) {
+      upsertGuildConfig(config);
+    }
 
     const access = await getServerControlAccess(interaction, config);
     if (!access.allowed) {
       await interaction.reply({
         content: `You do not have permission to start configured servers: ${access.reason}.`,
-        ephemeral: true
+        flags: ephemeralFlag
       });
       return;
     }
@@ -56,7 +60,7 @@ export const startServerCommand = {
     const name = interaction.options.getString("name", true);
     const serverCommand = findServerCommand(config, name);
     if (!serverCommand || !serverCommand.enabled) {
-      await interaction.reply({ content: `No enabled server command named \`${name}\` was found.`, ephemeral: true });
+      await interaction.reply({ content: `No enabled server command named \`${name}\` was found.`, flags: ephemeralFlag });
       return;
     }
 
@@ -64,7 +68,7 @@ export const startServerCommand = {
     if (lock) {
       await interaction.reply({
         content: `\`${serverCommand.name}\` is locked until ${new Date(lock.lockedUntil).toLocaleString()}.`,
-        ephemeral: true
+        flags: ephemeralFlag
       });
       return;
     }
@@ -121,7 +125,7 @@ export const startServerCommand = {
 
       await interaction.reply({
         content: `Start command for \`${serverCommand.name}\` failed: ${errorMessage}`,
-        ephemeral: true
+        flags: ephemeralFlag
       });
     }
   }

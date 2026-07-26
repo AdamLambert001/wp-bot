@@ -10,6 +10,7 @@ import {
   autocompleteConfiguredServer,
   getServerControlAccess
 } from "./serverCommandUtils.js";
+import { ephemeralFlag } from "../interactionErrors.js";
 
 const maxLockMinutes = 240;
 
@@ -51,7 +52,7 @@ export const lockServerCommand = {
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guildId) {
-      await interaction.reply({ content: "This command can only be used inside a server.", ephemeral: true });
+      await interaction.reply({ content: "This command can only be used inside a server.", flags: ephemeralFlag });
       return;
     }
 
@@ -60,7 +61,7 @@ export const lockServerCommand = {
     if (!access.allowed) {
       await interaction.reply({
         content: `You do not have permission to lock configured servers: ${access.reason}.`,
-        ephemeral: true
+        flags: ephemeralFlag
       });
       return;
     }
@@ -71,7 +72,7 @@ export const lockServerCommand = {
     const serverCommand = findServerCommand(config, name);
 
     if (!serverCommand || !serverCommand.enabled) {
-      await interaction.reply({ content: `No enabled server command named \`${name}\` was found.`, ephemeral: true });
+      await interaction.reply({ content: `No enabled server command named \`${name}\` was found.`, flags: ephemeralFlag });
       return;
     }
 

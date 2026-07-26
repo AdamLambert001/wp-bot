@@ -11,6 +11,7 @@ import {
   type ServerCheckStatus
 } from "../../services/portCheckService.js";
 import { getServerControlAccess } from "./serverCommandUtils.js";
+import { ephemeralFlag } from "../interactionErrors.js";
 
 function formatCheckField(status: ServerCheckStatus) {
   const state = status.online ? "Online" : "Offline";
@@ -53,7 +54,7 @@ export const serverCheckCommand = {
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guildId) {
-      await interaction.reply({ content: "This command can only be used inside a server.", ephemeral: true });
+      await interaction.reply({ content: "This command can only be used inside a server.", flags: ephemeralFlag });
       return;
     }
 
@@ -62,7 +63,7 @@ export const serverCheckCommand = {
     if (!access.allowed) {
       await interaction.reply({
         content: `You do not have permission to run server checks: ${access.reason}.`,
-        ephemeral: true
+        flags: ephemeralFlag
       });
       return;
     }

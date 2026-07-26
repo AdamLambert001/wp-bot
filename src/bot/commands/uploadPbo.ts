@@ -13,6 +13,7 @@ import {
 } from "../../services/permissionService.js";
 import { getUploadChannelMatch } from "../../services/uploadChannelService.js";
 import { logger } from "../../services/logger.js";
+import { ephemeralFlag } from "../interactionErrors.js";
 
 export const uploadPboCommand = {
   data: new SlashCommandBuilder()
@@ -29,10 +30,14 @@ export const uploadPboCommand = {
     if (!interaction.guildId || !interaction.guild) {
       await interaction.reply({
         content: "This command can only be used inside a Discord server.",
-        ephemeral: true
+        flags: ephemeralFlag
       });
       return;
     }
+
+    // Acknowledge quickly — Discord interactions expire after ~3s.
+    // Ephemeral so permission denials stay private; success uses a public follow-up.
+    await interaction.deferReply({ flags: ephemeralFlag });
 
     const config = getGuildConfig(interaction.guildId);
     const file = interaction.options.getAttachment("file", true);
@@ -40,6 +45,18 @@ export const uploadPboCommand = {
 
     if (!canUploadPbo(permissionContext, config)) {
       const diagnostics = getUploadPermissionDiagnostics(permissionContext, config);
+
+      await interaction.editReply({
+        content: [
+          "You do not have permission to upload PBO files.",
+          "",
+          "Permission debug:",
+          `Configured upload roles: ${diagnostics.configuredAllowedRoleIds.join(", ") || "none"}`,
+          `Your roles seen by bot: ${diagnostics.userRoleIdsSeenByBot.join(", ") || "none"}`,
+          `Matched roles: ${diagnostics.matchedRoleIds.join(", ") || "none"}`,
+          `Administrator seen: ${diagnostics.isAdministrator ? "yes" : "no"}`
+        ].join("\n")
+      });
 
       writeAuditLog({
         guildId: interaction.guildId,
@@ -54,24 +71,15 @@ export const uploadPboCommand = {
         title: "PBO Upload Denied",
         description: `${interaction.user.tag} attempted to upload \`${file.name}\` without permission.`
       });
-
-      await interaction.reply({
-        content: [
-          "You do not have permission to upload PBO files.",
-          "",
-          "Permission debug:",
-          `Configured upload roles: ${diagnostics.configuredAllowedRoleIds.join(", ") || "none"}`,
-          `Your roles seen by bot: ${diagnostics.userRoleIdsSeenByBot.join(", ") || "none"}`,
-          `Matched roles: ${diagnostics.matchedRoleIds.join(", ") || "none"}`,
-          `Administrator seen: ${diagnostics.isAdministrator ? "yes" : "no"}`
-        ].join("\n"),
-        ephemeral: true
-      });
       return;
     }
 
     const channelMatch = await getUploadChannelMatch(interaction, config);
     if (!channelMatch.allowed) {
+      await interaction.editReply({
+        content: "Uploads are not allowed in this channel."
+      });
+
       writeAuditLog({
         guildId: interaction.guildId,
         userId: interaction.user.id,
@@ -93,15 +101,8 @@ export const uploadPboCommand = {
           { name: "Checked Channels", value: channelMatch.checkedChannelIds.join(", ") || "none" }
         ]
       });
-
-      await interaction.reply({
-        content: "Uploads are not allowed in this channel.",
-        ephemeral: true
-      });
       return;
     }
-
-    await interaction.deferReply();
 
     try {
       const result = await savePboAttachment(file, config);
@@ -131,6 +132,9 @@ export const uploadPboCommand = {
       });
 
       await interaction.editReply({
+        content: `Upload complete: \`${result.fileName}\`.`
+      });
+      await interaction.followUp({
         content: `<@${interaction.user.id}> uploaded \`${result.fileName}\`.`
       });
     } catch (error) {
