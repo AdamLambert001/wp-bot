@@ -8,6 +8,9 @@ TypeScript Discord bot for uploading `.pbo` mission files to a configured server
 - `/listpbo` slash command with embed pagination buttons.
 - `/start`, `/stop`, and `/lock` slash commands for configured server command rows.
 - `/servercheck` slash command for configured port online/offline checks.
+- `/monitor` slash command to track a Windows service, port, or app and post red/green alerts.
+- `/service-tracks` slash command to list everything the bot is watching.
+- `/remove-service` slash command to stop tracking an item.
 - `.pbo` filename and size validation.
 - Configurable mission upload directory per Discord server.
 - Configurable Discord logging channel.
@@ -71,6 +74,8 @@ TypeScript Discord bot for uploading `.pbo` mission files to a configured server
    Upload channels are an allow-list. If no upload channels are selected, uploads are blocked everywhere.
 
 Configured server commands run on the host machine with `cmd.exe /c`. Only save commands you trust.
+
+`/monitor` watches this machine every 2 minutes. Use `service` for a Windows service, `port` for a local listener, or `app` for a Task Manager process. Down alerts ping the chosen role or user in the chosen channel; restored alerts do not ping. Role pings only work if that role is mentionable, or the bot is allowed to mention it.
 
 ## Run as a Windows Service
 

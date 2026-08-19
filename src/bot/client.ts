@@ -12,6 +12,7 @@ import { commands } from "./commands/index.js";
 import { clearGlobalCommands, registerGuildCommands } from "./commandRegistration.js";
 import { isUnknownInteractionError, safeReply } from "./interactionErrors.js";
 import { logger } from "../services/logger.js";
+import { startServiceMonitor } from "../services/serviceMonitorService.js";
 
 export type BotCommand = {
   data: {
@@ -44,6 +45,8 @@ export function createBotClient(): AppClient {
     await registerGuildCommands(readyClient).catch((error) => {
       logger.error({ error }, "Failed to auto-register guild slash commands");
     });
+
+    startServiceMonitor(readyClient);
   });
 
   client.on("interactionCreate", async (interaction) => {

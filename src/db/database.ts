@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { env } from "../config/env.js";
 import type { GuildConfig } from "../services/configService.js";
 import type { AuditStatus } from "../services/auditLogService.js";
+import type { ServiceTrack } from "../services/serviceTrackService.js";
 
 export type AuditLogRecord = {
   id: number;
@@ -19,13 +20,15 @@ type StoreData = {
   guildConfigs: Record<string, GuildConfig>;
   auditLogs: AuditLogRecord[];
   nextAuditLogId: number;
+  serviceTracks: ServiceTrack[];
 };
 
 const databasePath = resolve(env.DATABASE_PATH.replace(/\.db$/i, ".json"));
 const defaultData: StoreData = {
   guildConfigs: {},
   auditLogs: [],
-  nextAuditLogId: 1
+  nextAuditLogId: 1,
+  serviceTracks: []
 };
 
 mkdirSync(dirname(databasePath), { recursive: true });
@@ -87,5 +90,53 @@ export const store = {
       .filter((log) => log.guildId === guildId)
       .sort((a, b) => b.id - a.id)
       .slice(0, limit);
+  },
+
+  listServiceTracks(guildId?: string) {
+    const tracks = Array.isArray(data.serviceTracks) ? data.serviceTracks : [];
+
+    if (!guildId) {
+      return tracks;
+    }
+
+    return tracks.filter((track) => track.guildId === guildId);
+  },
+
+  getServiceTrack(id: string) {
+    return (Array.isArray(data.serviceTracks) ? data.serviceTracks : []).find((track) => track.id === id);
+  },
+
+  setServiceTrack(track: ServiceTrack) {
+    if (!Array.isArray(data.serviceTracks)) {
+      data.serviceTracks = [];
+    }
+
+    const index = data.serviceTracks.findIndex((item) => item.id === track.id);
+
+    if (index >= 0) {
+      data.serviceTracks[index] = track;
+    } else {
+      data.serviceTracks.push(track);
+    }
+
+    persist();
+    return track;
+  },
+
+  removeServiceTrack(id: string) {
+    if (!Array.isArray(data.serviceTracks)) {
+      data.serviceTracks = [];
+      return false;
+    }
+
+    const previousLength = data.serviceTracks.length;
+    data.serviceTracks = data.serviceTracks.filter((track) => track.id !== id);
+
+    if (data.serviceTracks.length === previousLength) {
+      return false;
+    }
+
+    persist();
+    return true;
   }
 };
