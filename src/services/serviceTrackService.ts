@@ -19,6 +19,9 @@ export type ServiceTrack = {
   createdAt: string;
   lastOnline: boolean | null;
   lastCheckedAt: string | null;
+  alertCount: number;
+  lastAlertMessageId: string | null;
+  lastDownAt: string | null;
 };
 
 export type AddServiceTrackInput = {
@@ -52,8 +55,17 @@ export function normalizeFriendlyName(value: string): string {
   return friendly;
 }
 
+function normalizeTrack(track: ServiceTrack): ServiceTrack {
+  return {
+    ...track,
+    alertCount: track.alertCount ?? 0,
+    lastAlertMessageId: track.lastAlertMessageId ?? null,
+    lastDownAt: track.lastDownAt ?? null
+  };
+}
+
 export function listServiceTracks(guildId?: string) {
-  return store.listServiceTracks(guildId);
+  return store.listServiceTracks(guildId).map(normalizeTrack);
 }
 
 export function findServiceTrack(guildId: string, nameOrId: string) {
@@ -108,7 +120,10 @@ export function addServiceTrack(input: AddServiceTrackInput): ServiceTrack {
     createdBy: input.createdBy,
     createdAt: new Date().toISOString(),
     lastOnline: null,
-    lastCheckedAt: null
+    lastCheckedAt: null,
+    alertCount: 0,
+    lastAlertMessageId: null,
+    lastDownAt: null
   };
 
   return store.setServiceTrack(track);
@@ -122,9 +137,37 @@ export function recordTrackCheck(id: string, online: boolean) {
   }
 
   return store.setServiceTrack({
-    ...existing,
+    ...normalizeTrack(existing),
     lastOnline: online,
     lastCheckedAt: new Date().toISOString()
+  });
+}
+
+export function recordTrackAlertState(
+  id: string,
+  patch: {
+    lastOnline: boolean;
+    alertCount?: number;
+    lastAlertMessageId?: string | null;
+    lastDownAt?: string | null;
+  }
+) {
+  const existing = store.getServiceTrack(id);
+
+  if (!existing) {
+    return null;
+  }
+
+  const current = normalizeTrack(existing);
+
+  return store.setServiceTrack({
+    ...current,
+    lastOnline: patch.lastOnline,
+    lastCheckedAt: new Date().toISOString(),
+    alertCount: patch.alertCount ?? current.alertCount,
+    lastAlertMessageId:
+      patch.lastAlertMessageId !== undefined ? patch.lastAlertMessageId : current.lastAlertMessageId,
+    lastDownAt: patch.lastDownAt !== undefined ? patch.lastDownAt : current.lastDownAt
   });
 }
 

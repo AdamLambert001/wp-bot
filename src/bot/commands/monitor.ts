@@ -150,7 +150,7 @@ export const monitorCommand = {
         .setDescription(
           initialStatus.online
             ? `${formatMonitorType(track.type)} \`${track.value}\` is currently online. Alerts will post on changes.`
-            : `${formatMonitorType(track.type)} \`${track.value}\` is currently offline. A restored alert will post when it comes back.`
+            : `${formatMonitorType(track.type)} \`${track.value}\` is currently offline. The down alert will be updated when it comes back.`
         )
         .setColor(initialStatus.online ? alertRestoredColor : alertDownColor)
         .addFields(

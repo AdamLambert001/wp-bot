@@ -47,7 +47,8 @@ export const serviceTracksCommand = {
             `• Type: ${formatMonitorType(track.type)}`,
             `• Value: \`${track.value}\``,
             `• Alerts: <#${track.channelId}>`,
-            `• Ping: ${trackMention(track)}`
+            `• Ping: ${trackMention(track)}`,
+            `• Alert #: ${track.alertCount}`
           ].join("\n"),
           inline: false
         }))

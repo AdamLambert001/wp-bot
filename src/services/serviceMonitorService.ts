@@ -2,13 +2,16 @@ import {
   ChannelType,
   EmbedBuilder,
   type Client,
-  type MessageCreateOptions
+  type GuildTextBasedChannel,
+  type MessageCreateOptions,
+  type MessageEditOptions
 } from "discord.js";
 import { logger } from "./logger.js";
 import { checkMonitorTarget } from "./monitorCheckService.js";
 import {
   formatMonitorType,
   listServiceTracks,
+  recordTrackAlertState,
   recordTrackCheck,
   trackMention,
   type ServiceTrack
@@ -21,23 +24,52 @@ export const alertRestoredColor = 0x57f287;
 let interval: NodeJS.Timeout | null = null;
 let polling = false;
 
-export function buildMonitorAlertPayload(track: ServiceTrack, online: boolean): MessageCreateOptions {
+function unixSeconds(iso: string | null) {
+  if (!iso) {
+    return Math.floor(Date.now() / 1000);
+  }
+
+  return Math.floor(new Date(iso).getTime() / 1000);
+}
+
+export function buildMonitorAlertPayload(
+  track: ServiceTrack,
+  online: boolean,
+  alertNumber: number,
+  downAt: string | null
+): MessageCreateOptions {
+  const fields = [
+    { name: "Type", value: formatMonitorType(track.type), inline: true },
+    { name: "Value", value: `\`${track.value}\``, inline: true },
+    { name: "Alert", value: `#${alertNumber}`, inline: true }
+  ];
+
+  if (downAt) {
+    fields.push({
+      name: online ? "Down at" : "Detected",
+      value: `<t:${unixSeconds(downAt)}:f>`,
+      inline: true
+    });
+  }
+
   const embed = new EmbedBuilder()
-    .setTitle(online ? `${track.friendly} restored` : `${track.friendly} is down`)
+    .setTitle(online ? `#${alertNumber} — ${track.friendly} restored` : `#${alertNumber} — ${track.friendly} is down`)
     .setDescription(
       online
         ? `The tracked ${formatMonitorType(track.type).toLowerCase()} \`${track.value}\` is back online.`
         : `The tracked ${formatMonitorType(track.type).toLowerCase()} \`${track.value}\` is no longer running.`
     )
     .setColor(online ? alertRestoredColor : alertDownColor)
-    .addFields(
-      { name: "Type", value: formatMonitorType(track.type), inline: true },
-      { name: "Value", value: `\`${track.value}\``, inline: true }
-    )
+    .addFields(fields)
+    .setFooter({ text: `Alert #${alertNumber}` })
     .setTimestamp(new Date());
 
   if (online) {
-    return { embeds: [embed] };
+    return {
+      content: `Alert #${alertNumber} resolved`,
+      allowedMentions: { parse: [] },
+      embeds: [embed]
+    };
   }
 
   return {
@@ -51,46 +83,115 @@ export function buildMonitorAlertPayload(track: ServiceTrack, online: boolean): 
   };
 }
 
-async function sendTrackAlert(client: Client, track: ServiceTrack, online: boolean) {
+function isAlertChannel(channel: unknown): channel is GuildTextBasedChannel {
+  return (
+    typeof channel === "object" &&
+    channel !== null &&
+    "type" in channel &&
+    (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement)
+  );
+}
+
+async function sendDownAlert(client: Client, track: ServiceTrack, alertNumber: number, downAt: string) {
   const channel = await client.channels.fetch(track.channelId).catch(() => null);
 
-  if (
-    !channel ||
-    (channel.type !== ChannelType.GuildText && channel.type !== ChannelType.GuildAnnouncement)
-  ) {
+  if (!isAlertChannel(channel)) {
     logger.warn(
       { channelId: track.channelId, trackId: track.id, friendly: track.friendly },
       "Monitor alert channel is unavailable"
     );
-    return;
+    return null;
   }
 
-  await channel.send(buildMonitorAlertPayload(track, online)).catch((error) => {
+  try {
+    return await channel.send(buildMonitorAlertPayload(track, false, alertNumber, downAt));
+  } catch (error) {
     logger.warn(
       { error, channelId: track.channelId, trackId: track.id, friendly: track.friendly },
       "Failed to send monitor alert"
     );
-  });
+    return null;
+  }
+}
+
+async function resolveRestoreAlert(
+  client: Client,
+  track: ServiceTrack,
+  alertNumber: number,
+  downAt: string | null
+) {
+  const payload = buildMonitorAlertPayload(track, true, alertNumber, downAt);
+  const channel = await client.channels.fetch(track.channelId).catch(() => null);
+
+  if (!isAlertChannel(channel)) {
+    logger.warn(
+      { channelId: track.channelId, trackId: track.id, friendly: track.friendly },
+      "Monitor alert channel is unavailable"
+    );
+    return null;
+  }
+
+  if (track.lastAlertMessageId) {
+    const existing = await channel.messages.fetch(track.lastAlertMessageId).catch(() => null);
+
+    if (existing) {
+      try {
+        return await existing.edit(payload as MessageEditOptions);
+      } catch (error) {
+        logger.warn(
+          { error, channelId: track.channelId, trackId: track.id, messageId: track.lastAlertMessageId },
+          "Failed to edit monitor alert; sending a new restored message"
+        );
+      }
+    }
+  }
+
+  try {
+    return await channel.send(payload);
+  } catch (error) {
+    logger.warn(
+      { error, channelId: track.channelId, trackId: track.id, friendly: track.friendly },
+      "Failed to send restored monitor alert"
+    );
+    return null;
+  }
 }
 
 async function pollTrack(client: Client, track: ServiceTrack) {
   const result = await checkMonitorTarget(track.type, track.value);
   const previous = track.lastOnline;
 
-  const updated = recordTrackCheck(track.id, result.online);
-
-  if (!updated || previous === null) {
+  if (previous === null) {
+    recordTrackCheck(track.id, result.online);
     return;
   }
 
   if (previous === true && result.online === false) {
-    await sendTrackAlert(client, track, false);
+    const alertNumber = track.alertCount + 1;
+    const downAt = new Date().toISOString();
+    const message = await sendDownAlert(client, track, alertNumber, downAt);
+
+    recordTrackAlertState(track.id, {
+      lastOnline: false,
+      alertCount: alertNumber,
+      lastAlertMessageId: message?.id ?? null,
+      lastDownAt: downAt
+    });
     return;
   }
 
   if (previous === false && result.online === true) {
-    await sendTrackAlert(client, track, true);
+    const alertNumber = Math.max(track.alertCount, 1);
+    const message = await resolveRestoreAlert(client, track, alertNumber, track.lastDownAt);
+
+    recordTrackAlertState(track.id, {
+      lastOnline: true,
+      lastAlertMessageId: message?.id ?? track.lastAlertMessageId
+    });
+    return;
   }
+
+  recordTrackCheck(track.id, result.online);
 }
 
 async function pollOnce(client: Client) {
