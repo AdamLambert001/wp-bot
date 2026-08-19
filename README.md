@@ -75,7 +75,7 @@ TypeScript Discord bot for uploading `.pbo` mission files to a configured server
 
 Configured server commands run on the host machine with `cmd.exe /c`. Only save commands you trust.
 
-`/monitor` watches this machine every 2 minutes. Use `service` for a Windows service, `port` for a local listener, or `app` for a Task Manager process. Each outage posts one numbered down alert (`#1`, `#2`, …) and pings the chosen role or user. When the target comes back, that same embed is edited to restored instead of posting a new message. Role pings only work if that role is mentionable, or the bot is allowed to mention it.
+`/monitor` watches this machine every minute. Use `service` for a Windows service, `port` for a local listener, or `app` for a Task Manager process. Each outage posts one numbered down alert (`#1`, `#2`, …) and pings the chosen role or user. When the target comes back, that same embed is edited to restored instead of posting a new message. Role pings only work if that role is mentionable, or the bot is allowed to mention it.
 
 ## Run as a Windows Service
 

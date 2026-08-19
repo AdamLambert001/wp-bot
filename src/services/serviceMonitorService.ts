@@ -9,7 +9,6 @@ import {
 import { logger } from "./logger.js";
 import { checkMonitorTarget } from "./monitorCheckService.js";
 import {
-  formatMonitorType,
   listServiceTracks,
   recordTrackAlertState,
   recordTrackCheck,
@@ -17,7 +16,7 @@ import {
   type ServiceTrack
 } from "./serviceTrackService.js";
 
-export const monitorPollIntervalMs = 120_000;
+export const monitorPollIntervalMs = 60_000;
 export const alertDownColor = 0xed4245;
 export const alertRestoredColor = 0x57f287;
 
@@ -36,33 +35,34 @@ export function buildMonitorAlertPayload(
   track: ServiceTrack,
   online: boolean,
   alertNumber: number,
-  downAt: string | null
+  downAt: string | null,
+  resolvedAt: string | null = null
 ): MessageCreateOptions {
-  const fields = [
-    { name: "Type", value: formatMonitorType(track.type), inline: true },
-    { name: "Value", value: `\`${track.value}\``, inline: true },
-    { name: "Alert", value: `#${alertNumber}`, inline: true }
-  ];
+  const fields: Array<{ name: string; value: string; inline: boolean }> = [];
 
   if (downAt) {
     fields.push({
-      name: online ? "Down at" : "Detected",
+      name: "Down at",
       value: `<t:${unixSeconds(downAt)}:f>`,
+      inline: true
+    });
+  }
+
+  if (online && resolvedAt) {
+    fields.push({
+      name: "Resolved at",
+      value: `<t:${unixSeconds(resolvedAt)}:f>`,
       inline: true
     });
   }
 
   const embed = new EmbedBuilder()
     .setTitle(online ? `#${alertNumber} — ${track.friendly} restored` : `#${alertNumber} — ${track.friendly} is down`)
-    .setDescription(
-      online
-        ? `The tracked ${formatMonitorType(track.type).toLowerCase()} \`${track.value}\` is back online.`
-        : `The tracked ${formatMonitorType(track.type).toLowerCase()} \`${track.value}\` is no longer running.`
-    )
-    .setColor(online ? alertRestoredColor : alertDownColor)
-    .addFields(fields)
-    .setFooter({ text: `Alert #${alertNumber}` })
-    .setTimestamp(new Date());
+    .setColor(online ? alertRestoredColor : alertDownColor);
+
+  if (fields.length > 0) {
+    embed.addFields(fields);
+  }
 
   if (online) {
     return {
@@ -120,7 +120,7 @@ async function resolveRestoreAlert(
   alertNumber: number,
   downAt: string | null
 ) {
-  const payload = buildMonitorAlertPayload(track, true, alertNumber, downAt);
+  const payload = buildMonitorAlertPayload(track, true, alertNumber, downAt, new Date().toISOString());
   const channel = await client.channels.fetch(track.channelId).catch(() => null);
 
   if (!isAlertChannel(channel)) {
